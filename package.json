@@ -1,1 +1,0 @@
-{"name":"nahomino-free","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"wrangler pages dev .","deploy":"wrangler pages deploy . --project-name nahomino"},"devDependencies":{"wrangler":"^4.0.0"}}
