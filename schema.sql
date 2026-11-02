@@ -1,3 +1,4 @@
+-- Run in Supabase SQL Editor for Nahomino 4. This creates tables and storage policies.
 -- Run once in Supabase SQL Editor. Auth users register with email/password.
 create extension if not exists pgcrypto;
 create table if not exists public.profiles (
@@ -16,7 +17,7 @@ grant execute on function public.my_role() to authenticated,anon;
 
 create table if not exists public.posts (
  id uuid primary key default gen_random_uuid(), subject text not null,
- section text not null check(section in ('سوالات متن کتاب','نمونه سوالات','جزوات')),
+ section text not null check(section in ('text','sample','notes','homework','special')),
  title text not null, body text not null default '',
  files jsonb not null default '[]'::jsonb,
  status text not null default 'draft' check(status in ('draft','published')),
@@ -120,3 +121,17 @@ create policy "public teaching read" on storage.objects for select to anon,authe
 -- IMPORTANT: promote only your real registered account, after signup, by replacing the email:
 -- update public.profiles set role='admin' where id=(select id from auth.users where email='YOUR_EMAIL');
 -- To authorize a teacher repeat with role='teacher' and the teacher email.
+
+-- Expand existing posts section constraint if upgrading from previous schema
+alter table public.posts drop constraint if exists posts_section_check;
+alter table public.posts add constraint posts_section_check check (section in ('text','sample','notes','homework','special'));
+-- Storage is public for downloadable educational files; uploads ONLY admin.
+insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
+values ('learning-files','learning-files',true,20971520,null)
+on conflict(id) do update set public=true, file_size_limit=20971520;
+create policy "public educational attachments" on storage.objects for select to anon,authenticated using(bucket_id='learning-files');
+create policy "admin upload attachments" on storage.objects for insert to authenticated with check(bucket_id='learning-files' and public.my_role()='admin');
+create policy "admin delete attachments" on storage.objects for delete to authenticated using(bucket_id='learning-files' and public.my_role()='admin');
+-- ADMIN BOOTSTRAP: register via Auth, copy your user UUID from Auth > Users, then execute as owner:
+-- update public.profiles set role='admin' where id='YOUR-AUTH-USER-UUID';
+-- Never paste a password into SQL or client-side code.
